@@ -1,4 +1,5 @@
 const { Client } = require('pg');
+const h3 = require('h3-js');
 
 exports.handler = async (event, context) => {
   let client;
@@ -44,10 +45,8 @@ exports.handler = async (event, context) => {
 };
 
 function h3ToGeoBoundary(h3Index) {
-  // This is a placeholder function. You need to use a library or implement logic
-  // to convert h3Index to geoBoundary similar to how it's done in the Go code.
-  return [
-    [37.78052, -122.4376],
-    [37.78227, -122.43486],
-  ]; // Dummy data for example
+  // Using the h3-js library to get the geo boundary for the given h3Index
+  const hexBoundary = h3.h3ToGeoBoundary(h3Index);
+  const formattedBoundary = hexBoundary.map(coord => [coord[0], coord[1]]);
+  return formattedBoundary;
 }
