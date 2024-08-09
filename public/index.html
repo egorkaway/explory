@@ -63,7 +63,38 @@
         maxZoom: 18
       }).addTo(map);
 
-      fetchVisitedH3s();
+      // Fetch and display the visits.geojson file
+      fetch('visits.geojson')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.statusText);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Visited H3 indexes: ', data);
+          data.forEach(item => {
+            var hexCoords = item.hexBoundary.map(function(coord) {
+              return [coord[0], coord[1]];
+            });
+
+            const polygon = L.polygon(hexCoords.concat([hexCoords[0]]), {
+              color: 'red',
+              fillColor: 'red',
+              fillOpacity: 0.2
+            }).addTo(map);
+
+            polygon.on('click', function(e) {
+              L.popup()
+                .setLatLng(e.latlng)
+                .setContent(`H3 Index: ${item.h3Index}<br/>Visits: ${item.visits}`)
+                .openOn(map);
+            });
+          });
+        })
+        .catch(error => {
+          console.error('Error fetching visited H3 indexes:', error);
+        });
 
       document.getElementById('checkin-btn').addEventListener('click', function() {
         if (navigator.geolocation) {
@@ -76,7 +107,6 @@
             // Add marker for current location
             L.marker([lat, lng]).addTo(map);
 
-            // Fetch AND update visits
             fetch(`/h3?lat=${lat}&lng=${lng}&level=9`)
               .then(response => {
                 if (!response.ok) {
@@ -146,42 +176,6 @@
           alert('Geolocation is not supported by this browser.');
         }
       });
-
-      function fetchVisitedH3s() {
-        console.log('Fetching visited H3 indexes...');
-        fetch('/visited')
-          .then(response => {
-            console.log('Received response: ', response);
-            if (!response.ok) {
-              throw new Error('Network response was not ok: ' + response.statusText);
-            }
-            return response.json();
-          })
-          .then(data => {
-            console.log('Visited H3 indexes: ', data);
-            data.forEach(item => {
-              var hexCoords = item.hexBoundary.map(function(coord) {
-                return [coord[0], coord[1]];
-              });
-
-              const polygon = L.polygon(hexCoords.concat([hexCoords[0]]), {
-                color: 'red',
-                fillColor: 'red',
-                fillOpacity: 0.2
-              }).addTo(map);
-
-              polygon.on('click', function(e) {
-                L.popup()
-                  .setLatLng(e.latlng)
-                  .setContent(`H3 Index: ${item.h3Index}<br/>Visits: ${item.visits}`)
-                  .openOn(map);
-              });
-            });
-          })
-          .catch(error => {
-            console.error('Error fetching visited H3 indexes:', error);
-          });
-      }
     });
   </script>
 </body>
