@@ -1,9 +1,7 @@
 import { Markdown } from 'components/markdown';
 import { ShapeEditor } from './editor';
 import { ContextAlert } from 'components/context-alert';
-import { listBlobs } from './actions';
 import { getNetlifyContext, uploadDisabled } from 'utils';
-import { useEffect, useState } from 'react';
 
 export const metadata = {
     title: 'Blobs'
@@ -39,22 +37,7 @@ User uploads are disabled in this site. To run your own and try it out:
 </a>
 `;
 
-export default function Page() {
-    const [blobs, setBlobs] = useState([]);
-
-    useEffect(() => {
-        async function fetchBlobs() {
-            try {
-                const blobList = await listBlobs();
-                setBlobs(blobList);
-            } catch (error) {
-                console.error('Error fetching blobs:', error);
-                setBlobs([]);
-            }
-        }
-        fetchBlobs();
-    }, []);
-
+export default async function Page() {
     return (
         <>
             <section className="flex flex-col gap-6 sm:gap-8">
@@ -71,18 +54,6 @@ export default function Page() {
                     <ShapeEditor />
                 </div>
             )}
-            <section className="flex flex-col gap-8">
-                <h2>Available Blobs</h2>
-                {blobs.length > 0 ? (
-                    <ul>
-                        {blobs.map((blob, index) => (
-                            <li key={index}>{blob}</li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p>No blobs available.</p>
-                )}
-            </section>
         </>
     );
 }
