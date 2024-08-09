@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Map your world!</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      width: 100vw;
+    }
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    #checkin-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 20px 40px;
+      font-size: 18px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      z-index: 1000;
+    }
+    #checkin-btn:hover {
+      background-color: #0056b3;
+    }
+
+    /* Responsive styles for mobile screens */
+    @media (max-width: 600px) {
+      #checkin-btn {
+        padding: 12px 44px;
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <button id="checkin-btn">Check In</button>
+
+  <!-- Include Leaflet Library -->
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var map = L.map('map', {
+        center: [44.5260, 5.2551],
+        zoom: 4
+      });
+
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ',
+        maxZoom: 18
+      }).addTo(map);
+
+      fetchVisitedH3s();
+
+      document.getElementById('checkin-btn').addEventListener('click', function() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(function(position) {
+            var lat = position.coords.latitude;
+            var lng = position.coords.longitude;
+
+            map.setView([lat, lng], 13);
+
+            // Add marker for current location
+            L.marker([lat, lng]).addTo(map);
+
+            // Fetch AND update visits
+            fetch(`/h3?lat=${lat}&lng=${lng}&level=9`)
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error('Network response was not ok: ' + response.statusText);
+                }
+                return response.json();
+              })
+              .then(data => {
+                console.log('Response data:', data);
+                if (data.message) {
+                  const visits = data.message.split(': ')[1];
+                  console.log(`H3 Index: ${data.h3Index}<br/>Visits: ${visits}`);
+                }
+              })
+              .catch(error => {
+                console.error('Error during fetch:', error);
+              });
+
+            function getOpacityForLevel(level, totalLevels) {
+              return 0.1 + ((level - 3) / (totalLevels - 1)) * 0.1;
+            }
+
+            function fetchAndDrawHex(level, totalLevels) {
+              fetch(`/h3?lat=${lat}&lng=${lng}&level=${level}`)
+                .then(response => {
+                  if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                  }
+                  return response.json();
+                })
+                .then(data => {
+                  const opacity = getOpacityForLevel(level, totalLevels);
+                  var hexCoords = data.hexBoundary.map(function(coord) {
+                    return [coord[0], coord[1]];
+                  });
+
+                  const polygon = L.polygon(hexCoords.concat([hexCoords[0]]), {
+                    color: 'blue',
+                    fillColor: 'blue',
+                    fillOpacity: opacity
+                  }).addTo(map);
+
+                  polygon.on('click', function(e) {
+                    L.popup()
+                      .setLatLng(e.latlng)
+                      .setContent(`H3 Index: ${data.h3Index}<br/>H3 Level: ${level}`)
+                      .openOn(map);
+                  });
+                })
+                .catch(error => {
+                  console.error('Error during fetch:', error);
+                });
+            }
+
+            const minLevel = 6;
+            const maxLevel = 9;
+            const totalLevels = maxLevel - minLevel + 1;
+
+            for (let level = minLevel; level <= maxLevel; level++) {
+              fetchAndDrawHex(level, totalLevels);
+            }
+
+          }, function() {
+            alert('Location access denied.');
+          });
+        } else {
+          alert('Geolocation is not supported by this browser.');
+        }
+      });
+
+      function fetchVisitedH3s() {
+        console.log('Fetching visited H3 indexes...');
+        fetch('/visited')
+          .then(response => {
+            console.log('Received response: ', response);
+            if (!response.ok) {
+              throw new Error('Network response was not ok: ' + response.statusText);
+            }
+            return response.json();
+          })
+          .then(data => {
+            console.log('Visited H3 indexes: ', data);
+            data.forEach(item => {
+              var hexCoords = item.hexBoundary.map(function(coord) {
+                return [coord[0], coord[1]];
+              });
+
+              const polygon = L.polygon(hexCoords.concat([hexCoords[0]]), {
+                color: 'red',
+                fillColor: 'red',
+                fillOpacity: 0.2
+              }).addTo(map);
+
+              polygon.on('click', function(e) {
+                L.popup()
+                  .setLatLng(e.latlng)
+                  .setContent(`H3 Index: ${item.h3Index}<br/>Visits: ${item.visits}`)
+                  .openOn(map);
+              });
+            });
+          })
+          .catch(error => {
+            console.error('Error fetching visited H3 indexes:', error);
+          });
+      }
+    });
+  </script>
+</body>
+</html>
