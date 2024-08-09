@@ -22,7 +22,7 @@ exports.handler = async (event, context) => {
     const visitedH3s = result.rows.map(row => {
       const h3Index = row.h3_index;
       const visits = row.visits;
-      const hexBoundary = h3.h3ToGeoBoundary(h3Index);
+      const hexBoundary = h3.h3ToGeoBoundary(h3Index, true);
 
       const boundaryCoords = hexBoundary.map(coord => [coord[0], coord[1]]);
 
