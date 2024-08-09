@@ -1,3 +1,5 @@
+"use client";  // This must be the first line in the file
+
 import { Markdown } from 'components/markdown';
 import { ShapeEditor } from './editor';
 import { ContextAlert } from 'components/context-alert';
