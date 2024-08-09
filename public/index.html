@@ -51,6 +51,9 @@
   <!-- Include Leaflet Library -->
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
+  <!-- Include h3-js Library -->
+  <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       var map = L.map('map', {
@@ -107,58 +110,31 @@
             // Add marker for current location
             L.marker([lat, lng]).addTo(map);
 
-            fetch(`/h3?lat=${lat}&lng=${lng}&level=9`)
-              .then(response => {
-                if (!response.ok) {
-                  throw new Error('Network response was not ok: ' + response.statusText);
-                }
-                return response.json();
-              })
-              .then(data => {
-                console.log('Response data:', data);
-                if (data.message) {
-                  const visits = data.message.split(': ')[1];
-                  console.log(`H3 Index: ${data.h3Index}<br/>Visits: ${visits}`);
-                }
-              })
-              .catch(error => {
-                console.error('Error during fetch:', error);
-              });
-
             function getOpacityForLevel(level, totalLevels) {
               return 0.1 + ((level - 3) / (totalLevels - 1)) * 0.1;
             }
 
-            function fetchAndDrawHex(level, totalLevels) {
-              fetch(`/h3?lat=${lat}&lng=${lng}&level=${level}`)
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error('Network response was not ok: ' + response.statusText);
-                  }
-                  return response.json();
-                })
-                .then(data => {
-                  const opacity = getOpacityForLevel(level, totalLevels);
-                  var hexCoords = data.hexBoundary.map(function(coord) {
-                    return [coord[0], coord[1]];
-                  });
+            function drawHex(level, totalLevels) {
+              const h3Index = h3.geoToH3(lat, lng, level);
+              const hexBoundary = h3.h3ToGeoBoundary(h3Index);
 
-                  const polygon = L.polygon(hexCoords.concat([hexCoords[0]]), {
-                    color: 'blue',
-                    fillColor: 'blue',
-                    fillOpacity: opacity
-                  }).addTo(map);
+              const opacity = getOpacityForLevel(level, totalLevels);
+              var hexCoords = hexBoundary.map(function(coord) {
+                return [coord[0], coord[1]];
+              });
 
-                  polygon.on('click', function(e) {
-                    L.popup()
-                      .setLatLng(e.latlng)
-                      .setContent(`H3 Index: ${data.h3Index}<br/>H3 Level: ${level}`)
-                      .openOn(map);
-                  });
-                })
-                .catch(error => {
-                  console.error('Error during fetch:', error);
-                });
+              const polygon = L.polygon(hexCoords.concat([hexCoords[0]]), {
+                color: 'blue',
+                fillColor: 'blue',
+                fillOpacity: opacity
+              }).addTo(map);
+
+              polygon.on('click', function(e) {
+                L.popup()
+                  .setLatLng(e.latlng)
+                  .setContent(`H3 Index: ${h3Index}<br/>H3 Level: ${level}`)
+                  .openOn(map);
+              });
             }
 
             const minLevel = 6;
@@ -166,7 +142,7 @@
             const totalLevels = maxLevel - minLevel + 1;
 
             for (let level = minLevel; level <= maxLevel; level++) {
-              fetchAndDrawHex(level, totalLevels);
+              drawHex(level, totalLevels);
             }
 
           }, function() {
